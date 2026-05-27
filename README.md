@@ -1,135 +1,166 @@
 # mimo-cli
 
-一键安装的 Xiaomi MiMo CLI 集合，按官方开放平台文档整理，覆盖当前**明确开放**的能力：
+Official-style Xiaomi MiMo command-line interface for the **documented** public API surface.
 
-- 文本对话：`chat`
-- 函数工具调用：`tool-call`
-- 内置网络搜索：`web-search`
-- 图像理解：`image-understand`
-- 音频理解：`audio-understand`
-- 视频理解：`video-understand`
-- TTS（内置音色）：`tts`
-- TTS（声音设计）：`tts-voice-design`
-- TTS（声音克隆）：`tts-voice-clone`
-- 能力清单：`models`
+`mimo-cli` is a practical open-source CLI for:
 
-## 安装
+- text chat
+- function/tool calling inspection
+- built-in web search
+- image understanding
+- audio understanding
+- video understanding
+- speech synthesis (built-in voice)
+- speech synthesis (voice design)
+- speech synthesis (voice clone)
+
+It also includes **reserved namespaces** for capabilities that appear in product/news materials but are **not yet documented as stable public API endpoints**. Those commands intentionally fail with a clear message instead of pretending support.
+
+## Install
+
+### From GitHub
 
 ```bash
-cd /home/willlv/mimo-cli
+pip install git+https://github.com/will422-l/mimo-cli.git
+```
+
+### Local editable install
+
+```bash
+git clone https://github.com/will422-l/mimo-cli.git
+cd mimo-cli
 python3 -m pip install -e .
 ```
 
-## 环境变量
+## Quick start
 
 ```bash
-export MIMO_API_KEY="你的 key"
-# 可选
-export MIMO_BASE_URL="https://api.xiaomimimo.com"
-export MIMO_TIMEOUT=300
+mimo auth login --api-key sk-xxxxx
+mimo auth status
+mimo doctor
+mimo chat "What can Xiaomi MiMo do?"
 ```
 
-## 快速示例
+## Command overview
 
-### 1) 基础聊天
-```bash
-mimo chat "用一句话解释 Transformer" --model mimo-v2.5-pro
-```
-
-### 2) 让模型输出 function tool call
-先准备 `tools.json`：
-
-```json
-[
-  {
-    "type": "function",
-    "function": {
-      "name": "get_weather",
-      "description": "Get weather by city",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string"}
-        },
-        "required": ["city"]
-      }
-    }
-  }
-]
-```
-
-调用：
+### Auth & config
 
 ```bash
-mimo tool-call "帮我查一下北京天气" --tools-file tools.json
+mimo auth login --api-key sk-xxxxx
+mimo auth status
+mimo auth logout
+
+mimo config show
+mimo config set default_text_model mimo-v2.5-pro
+mimo config set base_url https://api.xiaomimimo.com
+mimo config unset api_key
 ```
 
-### 3) 内置网络搜索
+### Diagnostics
+
 ```bash
-mimo web-search "今天小米有哪些 AI 相关新闻？" --forced
+mimo doctor
+mimo doctor --live
 ```
 
-### 4) 图像理解
+### Text chat
+
 ```bash
-mimo image-understand ./demo.png "描述图片内容并提取关键信息"
+mimo chat "Explain MiMo briefly"
+mimo text chat --message "user:Hello" --message "assistant:Hi" --message "user:Summarize tool calling"
+mimo text chat --messages-file messages.json --output json
+mimo chat "Stream this response" --stream
 ```
 
-### 5) 音频理解
+### Function tool calling
+
 ```bash
-mimo audio-understand ./demo.wav "总结这段音频内容"
+mimo tool-call "Check Beijing weather" --tools-file tools.json
+mimo text tool-call "Check Beijing weather" --tools-file tools.json --thinking
 ```
 
-### 6) 视频理解
+> `--run` is currently reserved for a future local tool execution loop. Current releases inspect model tool calls but do not execute local functions yet.
+
+### Web search
+
 ```bash
-mimo video-understand ./demo.mp4 "描述视频主要情节"
+mimo web-search "Latest Xiaomi AI news" --forced
+mimo search query "MiMo release notes"
 ```
 
-### 7) 内置音色 TTS
+### Vision / multimodal understanding
+
 ```bash
-mimo tts "你好，欢迎使用 MiMo" -o hello.wav --voice mimo_default
+mimo image-understand ./demo.png "Describe the image"
+mimo audio-understand ./demo.wav "Summarize the audio"
+mimo video-understand ./demo.mp4 "Describe the video"
+
+mimo vision image ./demo.png
+mimo vision audio ./demo.wav "What is being said?"
+mimo vision video ./demo.mp4 "Summarize the scene"
 ```
 
-### 8) 声音设计 TTS
+### Speech synthesis
+
 ```bash
-mimo tts-voice-design "年轻女声，明亮，语速偏快，适合播报科技新闻" "今天发布会带来了多项 AI 新能力。" -o design.wav
+mimo tts "Hello from MiMo" -o hello.wav
+mimo tts "Happy birthday to you" --sing -o song.wav
+
+mimo speech synthesize "Welcome to MiMo" -o welcome.wav
+mimo speech voice-design "Young female voice, bright, fast-paced, suitable for tech news" "Today we launched new AI features." -o design.wav
+mimo speech voice-clone ./voice_sample.wav "This is a cloned-voice demo." -o clone.wav
 ```
 
-### 9) 声音克隆 TTS
+## Reserved future namespaces
+
+These commands are intentionally present as stable UX placeholders, but they currently return a clear “not yet documented” error:
+
 ```bash
-mimo tts-voice-clone ./voice_sample.wav "这是克隆音色测试。" -o clone.wav
+mimo image generate
+mimo music generate
+mimo speech transcribe
+mimo gui
 ```
 
-## 官方文档核对后的能力范围
+Why? Because Xiaomi MiMo public docs currently do **not** provide enough stable API detail for these capabilities, and this project prefers explicit placeholders over fake support.
 
-### 已明确开放
+## Documented capability map
+
+### Explicitly documented in current MiMo public API docs
+
 - `mimo-v2.5-pro` / `mimo-v2-pro` / `mimo-v2.5` / `mimo-v2-omni` / `mimo-v2-flash`
-  - 文本生成
-  - Function Call
-  - Structured Output
-  - Web Search（需平台侧启用插件）
+  - text generation
+  - function calling
+  - structured output
+  - web search
 - `mimo-v2.5` / `mimo-v2-omni`
-  - 图像理解
-  - 音频理解
-  - 视频理解
+  - image understanding
+  - audio understanding
+  - video understanding
 - `mimo-v2.5-tts`
-  - 内置音色 TTS
-  - 风格控制
-  - 唱歌风格
+  - built-in voice TTS
+  - style control
+  - singing style
 - `mimo-v2.5-tts-voicedesign`
-  - 自然语言定义新音色
+  - voice design
 - `mimo-v2.5-tts-voiceclone`
-  - 上传音频样本做音色克隆
+  - voice cloning
 - `mimo-v2-tts`
-  - 旧版 TTS，支持唱歌风格
+  - older TTS model, still useful for singing style
 
-### 文档里未看到正式 API 的能力
-以下能力在这次抓取到的**官方 API 文档**里没有看到正式可调用接口，因此本 CLI 暂不伪造实现：
+### Reserved, not implemented until publicly documented
 
-- 文生图 / 图像生成
-- 文生音乐 / 通用音乐生成
-- 独立 ASR HTTP API 文档
-- GUI / computer-use / browser 操作 API 细节
+- image generation / text-to-image
+- music generation / text-to-music
+- standalone ASR API
+- GUI / computer-use API
 
-如果后续你要，我可以继续做第二阶段：
-1. 再深入抓 MiMo 平台控制台前端接口，确认是否有未公开到文档页的能力；
-2. 把这个 CLI 扩成完整发布版（发布到 Git、本地全局安装、补流式输出、补自动保存 JSON/音频）。
+## Notes
+
+- Local media files are automatically converted to data URLs for documented multimodal endpoints.
+- Web search may require the plugin to be enabled on the Xiaomi MiMo platform side.
+- Saved credentials are stored in `~/.config/mimo-cli/config.json` unless `MIMO_CONFIG_DIR` is set.
+
+## License
+
+MIT
