@@ -22,6 +22,19 @@
 pip install git+https://github.com/will422-l/mimo-cli.git
 ```
 
+如果当前网络下 GitHub git 传输不稳定，也可以从分支压缩包安装：
+
+```bash
+pip install https://github.com/will422-l/mimo-cli/archive/refs/heads/main.zip
+```
+
+从源码构建：
+
+```bash
+python3 -m pip install build
+python3 -m build
+```
+
 本地开发安装：
 
 ```bash
