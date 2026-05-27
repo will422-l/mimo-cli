@@ -24,6 +24,19 @@ It also includes **reserved namespaces** for capabilities that appear in product
 pip install git+https://github.com/will422-l/mimo-cli.git
 ```
 
+If GitHub git transport is unstable in your network, install from the branch archive instead:
+
+```bash
+pip install https://github.com/will422-l/mimo-cli/archive/refs/heads/main.zip
+```
+
+### Build from source
+
+```bash
+python3 -m pip install build
+python3 -m build
+```
+
 ### Local editable install
 
 ```bash
