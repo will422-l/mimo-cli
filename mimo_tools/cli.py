@@ -190,8 +190,9 @@ def cmd_web_search(args: argparse.Namespace) -> None:
 
 def multimodal_message(prompt: str, media_kind: str, media_value: str) -> List[Dict[str, Any]]:
     part = maybe_media_ref(media_value, media_kind)
+    kind = next(iter(part.keys()))
     return [{"role": "user", "content": [
-        {"type": list(part.keys())[0], **list(part.values())[0]},
+        {"type": kind, kind: part[kind]},
         {"type": "text", "text": prompt},
     ]}]
 
