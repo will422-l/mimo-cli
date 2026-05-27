@@ -3,15 +3,22 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mimo-tools"
-version = "0.1.0"
-description = "One-install Xiaomi MiMo API CLI: chat, tools, web search, vision/audio/video understanding, and TTS."
+name = "mimo-cli"
+version = "0.2.0"
+description = "Xiaomi MiMo API CLI: chat, tool calling, web search, multimodal understanding, and TTS."
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{name = "Hermes Agent"}]
+authors = [{name = "will422-l"}]
+license = {text = "MIT"}
 dependencies = [
   "requests>=2.31.0",
 ]
+keywords = ["mimo", "xiaomi", "cli", "tts", "multimodal", "web-search", "tool-calling"]
+
+[project.urls]
+Homepage = "https://github.com/will422-l/mimo-cli"
+Repository = "https://github.com/will422-l/mimo-cli"
+Issues = "https://github.com/will422-l/mimo-cli/issues"
 
 [project.scripts]
 mimo = "mimo_tools.cli:main"
