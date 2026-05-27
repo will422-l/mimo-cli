@@ -1,4 +1,4 @@
-# mimo-tools
+# mimo-cli
 
 一键安装的 Xiaomi MiMo CLI 集合，按官方开放平台文档整理，覆盖当前**明确开放**的能力：
 
@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-cd /home/willlv/mimo-tools
+cd /home/willlv/mimo-cli
 python3 -m pip install -e .
 ```
 
