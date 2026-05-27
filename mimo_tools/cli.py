@@ -57,6 +57,12 @@ def save_config(config: Dict[str, Any]) -> None:
         pass
 
 
+def mask_secret(value: str) -> str:
+    if len(value) <= 8:
+        return "***"
+    return value[:6] + "..." + value[-4:]
+
+
 def get_config_value(key: str) -> Any:
     return load_config().get(key, DEFAULT_CONFIG.get(key))
 
@@ -66,7 +72,10 @@ def api_base() -> str:
 
 
 def chat_url() -> str:
-    return api_base() + "/v1/chat/completions"
+    base = api_base()
+    if base.endswith("/v1"):
+        return base + "/chat/completions"
+    return base + "/v1/chat/completions"
 
 
 def timeout() -> int:
@@ -257,7 +266,7 @@ def cmd_auth_status(args: argparse.Namespace) -> None:
         source = "environment"
     elif config.get("api_key"):
         source = str(CONFIG_PATH)
-    masked = None if not key else key[:6] + "..." + key[-4:]
+    masked = None if not key else mask_secret(key)
     print_json({
         "authenticated": bool(key),
         "key_source": source,
@@ -279,7 +288,7 @@ def cmd_config_show(_: argparse.Namespace) -> None:
     config = load_config()
     if config.get("api_key"):
         config = dict(config)
-        config["api_key"] = config["api_key"][:6] + "..." + config["api_key"][-4:]
+        config["api_key"] = mask_secret(config["api_key"])
     print_json({"config_path": str(CONFIG_PATH), "config": config})
 
 
@@ -379,7 +388,7 @@ def cmd_web_search(args: argparse.Namespace) -> None:
     payload = {
         "model": args.model or get_config_value("default_text_model"),
         "messages": [{"role": "user", "content": prompt}],
-        "tools": [{"type": "web_search", "forced_search": bool(args.forced)}],
+        "tools": [{"type": "web_search", "force_search": bool(args.forced)}],
         "tool_choice": "auto",
     }
     data = post_chat(payload, args=args).json()
@@ -530,9 +539,20 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         report["checks"].append({"name": "base_url_reachable", "ok": False, "error": repr(exc)})
     if args.live and report["has_api_key"]:
         try:
-            payload = {"model": args.model or get_config_value("default_text_model"), "messages": [{"role": "user", "content": "Reply with OK only."}], "max_tokens": 8}
+            payload = {"model": args.model or get_config_value("default_text_model"), "messages": [{"role": "user", "content": "Reply with OK only."}], "max_tokens": 80}
             data = post_chat(payload, args=args).json()
-            report["checks"].append({"name": "chat_completion", "ok": True, "model": payload["model"], "response": extract_message(data).get("content")})
+            message = extract_message(data)
+            content = message.get("content") or ""
+            finish_reason = (data.get("choices") or [{}])[0].get("finish_reason")
+            report["checks"].append({
+                "name": "chat_completion",
+                "ok": bool(content),
+                "model": payload["model"],
+                "response": content,
+                "finish_reason": finish_reason,
+                "has_content": bool(content),
+                "has_reasoning_content": bool(message.get("reasoning_content")),
+            })
         except Exception as exc:
             report["checks"].append({"name": "chat_completion", "ok": False, "error": repr(exc)})
     print_json(report)
