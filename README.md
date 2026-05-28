@@ -13,6 +13,7 @@ Official-style Xiaomi MiMo command-line interface for the **documented** public 
 - speech synthesis (built-in voice)
 - speech synthesis (voice design)
 - speech synthesis (voice clone)
+- Feishu voice message sending
 
 It also includes **reserved namespaces** for capabilities that appear in product/news materials but are **not yet documented as stable public API endpoints**. Those commands intentionally fail with a clear message instead of pretending support.
 
@@ -65,7 +66,7 @@ mimo auth logout
 
 mimo config show
 mimo config set default_text_model mimo-v2.5-pro
-mimo config set base_url https://api.xiaomimimo.com
+mimo config set base_url https://token-plan-cn.xiaomimimo.com/v1
 mimo config unset api_key
 ```
 
@@ -116,17 +117,101 @@ mimo vision video ./demo.mp4 "Summarize the scene"
 ### Speech synthesis
 
 ```bash
+# Preset voice TTS
 mimo tts "Hello from MiMo" -o hello.wav
 mimo tts "Happy birthday to you" --sing -o song.wav
+mimo tts "温柔地说" --voice 冰糖 -o gentle.wav
 
-mimo speech synthesize "Welcome to MiMo" -o welcome.wav
-mimo speech voice-design "Young female voice, bright, fast-paced, suitable for tech news" "Today we launched new AI features." -o design.wav
+# Natural language style control (director mode)
+mimo tts "冷静，冷静..." --voice 冰糖 --context "紧张的语气，语速加快" -o tense.wav
+
+# Voice design
+mimo speech voice-design "Young female voice, bright, fast-paced" "Today we launched new AI features." -o design.wav
+
+# Voice clone
 mimo speech voice-clone ./voice_sample.wav "This is a cloned-voice demo." -o clone.wav
+
+# Voice clone with director mode
+mimo speech voice-clone ./voice_sample.wav --context "用温柔的语气，语速稍慢" "没关系，慢慢来" -o clone_director.wav
 ```
+
+#### Preset voices
+
+| Voice ID | Language | Gender | Style |
+|----------|----------|--------|-------|
+| 冰糖 | 中文 | 女性 | 活泼少女 |
+| 茉莉 | 中文 | 女性 | 知性女声 |
+| 苏打 | 中文 | 男性 | 阳光少年 |
+| 白桦 | 中文 | 男性 | 成熟男声 |
+| Mia | English | Female | Lively girl |
+| Chloe | English | Female | Sweet Dreamy |
+| Milo | English | Male | Sunny boy |
+| Dean | English | Male | Steady Gentle |
+
+#### Natural language control (--context)
+
+All TTS models support `--context` for style/director mode:
+
+- **Multi-style**: Switch between narration → whisper → shout within one utterance
+- **Multi-emotion**: Composite emotions like "suppressed anger" or "laughing through tears"
+- **Director mode**: Full character + scene + direction control for role-play / dubbing
+
+Example director mode:
+```bash
+mimo tts "你以为我会原谅你吗" --voice 白桦 \
+  --context "角色：冷酷的反派，场景：面对背叛，指导：语速极慢，每个字都像在舌尖滚过" \
+  -o villain.wav
+```
+
+#### Audio tag control
+
+Insert emotion/action tags in parentheses within the text:
+
+```bash
+mimo tts "（紧张，深呼吸）呼……冷静，冷静。（小声）领带歪没歪？" --voice 冰糖 -o interview.wav
+mimo tts "(sighs deeply) I don't know anymore. (suddenly firm) But I won't give up!" --voice Mia -o english.wav
+```
+
+#### Singing
+
+```bash
+mimo tts "(唱歌)原谅我这一生不羁放纵爱自由" --voice 冰糖 -o song.wav
+```
+
+#### Audio format
+
+All TTS commands support `--format wav|mp3|opus`:
+
+```bash
+mimo tts "Hello" --voice Mia --format mp3 -o hello.mp3
+```
+
+### Feishu voice message sending
+
+Send TTS-generated audio as a native Feishu voice message (not a file attachment):
+
+```bash
+# Generate voice
+mimo tts "好的，马上就好！" --voice 冰糖 -o /tmp/voice.wav
+
+# Send to Feishu DM (open_id)
+mimo speech feishu-send /tmp/voice.wav open_id ou_xxxxxx
+
+# Send to Feishu group (chat_id)
+mimo speech feishu-send /tmp/voice.wav chat_id oc_xxxxxx
+```
+
+Requires environment variables:
+- `FEISHU_APP_ID` — Feishu app ID
+- `FEISHU_APP_SECRET` — Feishu app secret
+
+Requires: `ffmpeg` (for WAV→Opus conversion)
+
+> **Why not use a generic message tool?** Feishu voice messages require uploading via `/im/v1/files` with `msg_type: audio`, then sending with the `file_key`. Generic message tools typically don't implement this flow and would send audio as a file attachment instead of a voice bubble.
 
 ## Reserved future namespaces
 
-These commands are intentionally present as stable UX placeholders, but they currently return a clear “not yet documented” error:
+These commands are intentionally present as stable UX placeholders, but they currently return a clear "not yet documented" error:
 
 ```bash
 mimo image generate
@@ -151,13 +236,16 @@ Why? Because Xiaomi MiMo public docs currently do **not** provide enough stable 
   - audio understanding
   - video understanding
 - `mimo-v2.5-tts`
-  - built-in voice TTS
-  - style control
+  - built-in voice TTS (8 preset voices)
+  - natural language style control / director mode
+  - audio tag control
   - singing style
 - `mimo-v2.5-tts-voicedesign`
-  - voice design
+  - voice design from text description
+  - director mode
 - `mimo-v2.5-tts-voiceclone`
-  - voice cloning
+  - voice cloning from audio sample (mp3/wav, max 10MB)
+  - director mode
 - `mimo-v2-tts`
   - older TTS model, still useful for singing style
 
@@ -171,8 +259,24 @@ Why? Because Xiaomi MiMo public docs currently do **not** provide enough stable 
 ## Notes
 
 - Local media files are automatically converted to data URLs for documented multimodal endpoints.
-- Web search may require the plugin to be enabled on the Xiaomi MiMo platform side.
+- Voice clone samples are validated: only mp3/wav format, max 10MB.
+- Web Search must be enabled for the API key / endpoint you are using. Xiaomi MiMo Token Plan keys can be endpoint-scoped: a key that works on `https://token-plan-cn.xiaomimimo.com/v1` may be invalid on `https://api.xiaomimimo.com/v1`. If the server returns `webSearchEnabled is false`, the request has reached MiMo but that key/endpoint still has Web Search disabled.
 - Saved credentials are stored in `~/.config/mimo-cli/config.json` unless `MIMO_CONFIG_DIR` is set.
+
+## Changelog
+
+### 0.3.0 — Integrated Xiaomi official MiMo-Skills
+
+- Added `--context` parameter to all TTS commands (preset voice, voice-design, voice-clone) for natural language style control and director mode
+- Added preset voice validation (8 official voices: 冰糖/茉莉/苏打/白桦/Mia/Chloe/Milo/Dean)
+- Added `--format wav|mp3|opus` choices for all TTS commands
+- Added voice-clone sample validation (format: mp3/wav only, max 10MB)
+- Added `mimo speech feishu-send` command for sending audio as native Feishu voice messages
+- Changed default voice from `mimo_default` to `冰糖` (matches official documentation)
+
+### 0.2.0
+
+- Initial public release
 
 ## License
 
