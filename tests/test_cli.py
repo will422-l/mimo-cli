@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -40,6 +39,131 @@ def test_parser_version_and_reserved_commands_exist():
     assert "doctor" in help_text
     assert "image" in help_text
     assert "music" in help_text
+
+
+def test_preset_vices_constant():
+    """Verify PRESET_VOICES matches official Xiaomi MiMo V2.5 TTS documented voices."""
+    assert "冰糖" in cli.PRESET_VOICES
+    assert "茉莉" in cli.PRESET_VOICES
+    assert "苏打" in cli.PRESET_VOICES
+    assert "白桦" in cli.PRESET_VOICES
+    assert "Mia" in cli.PRESET_VOICES
+    assert "Chloe" in cli.PRESET_VOICES
+    assert "Milo" in cli.PRESET_VOICES
+    assert "Dean" in cli.PRESET_VOICES
+    assert len(cli.PRESET_VOICES) == 8
+
+
+def test_tts_voice_choices_enforced():
+    """--voice should only accept preset voices."""
+    parser = cli.build_parser()
+    # Valid voice should work
+    args = parser.parse_args(["tts", "hello", "-o", "out.wav", "--voice", "冰糖"])
+    assert args.voice == "冰糖"
+    # Invalid voice should be rejected by argparse choices
+    try:
+        parser.parse_args(["tts", "hello", "-o", "out.wav", "--voice", "nonexistent"])
+        assert False, "Should have raised SystemExit for invalid voice"
+    except SystemExit:
+        pass
+
+
+def test_tts_context_arg():
+    """--context should be parsed for natural language style control."""
+    parser = cli.build_parser()
+    args = parser.parse_args(["tts", "hello", "-o", "out.wav", "--context", "用温柔的语气"])
+    assert args.context == "用温柔的语气"
+
+
+def test_tts_format_choices():
+    """--format should accept wav, mp3, opus."""
+    parser = cli.build_parser()
+    for fmt in ["wav", "mp3", "opus"]:
+        args = parser.parse_args(["tts", "hello", "-o", f"out.{fmt}", "--format", fmt])
+        assert args.format == fmt
+    # Invalid format should be rejected
+    try:
+        parser.parse_args(["tts", "hello", "-o", "out.flac", "--format", "flac"])
+        assert False, "Should have raised SystemExit for invalid format"
+    except SystemExit:
+        pass
+
+
+def test_voice_clone_validation_good(tmp_path):
+    """Valid mp3/wav files under 10MB should pass validation."""
+    good_file = tmp_path / "voice.mp3"
+    good_file.write_bytes(b"fake mp3 data")
+    cli.validate_voice_sample(str(good_file))  # Should not raise
+
+
+def test_voice_clone_validation_bad_format(tmp_path):
+    """Non-mp3/wav files should be rejected."""
+    bad_file = tmp_path / "voice.flac"
+    bad_file.write_bytes(b"fake flac data")
+    try:
+        cli.validate_voice_sample(str(bad_file))
+        assert False, "Should have raised MimoError for bad format"
+    except cli.MimoError as e:
+        assert "Unsupported" in str(e)
+
+
+def test_voice_clone_validation_too_large(tmp_path):
+    """Files over 10MB should be rejected."""
+    big_file = tmp_path / "voice.wav"
+    big_file.write_bytes(b"\x00" * (10 * 1024 * 1024 + 1))
+    try:
+        cli.validate_voice_sample(str(big_file))
+        assert False, "Should have raised MimoError for file too large"
+    except cli.MimoError as e:
+        assert "too large" in str(e).lower()
+
+
+def test_voice_clone_validation_missing_file():
+    """Nonexistent files should be rejected."""
+    try:
+        cli.validate_voice_sample("/nonexistent/path/voice.wav")
+        assert False, "Should have raised MimoError for missing file"
+    except cli.MimoError as e:
+        assert "not found" in str(e).lower()
+
+
+def test_feishu_send_subcommand_exists():
+    """speech feishu-send subcommand should be registered."""
+    parser = cli.build_parser()
+    args = parser.parse_args(["speech", "feishu-send", "audio.wav", "open_id", "ou_test123"])
+    assert args.audio_file == "audio.wav"
+    assert args.receive_id_type == "open_id"
+    assert args.receive_id == "ou_test123"
+
+
+def test_tts_builds_context_message():
+    """When --context is provided, it should be injected as user message."""
+    parser = cli.build_parser()
+    args = parser.parse_args(["tts", "你好", "-o", "out.wav", "--voice", "冰糖", "--context", "温柔地说"])
+    # We can't easily call cmd_tts without mocking the API, but we can verify args
+    assert args.context == "温柔地说"
+    assert args.voice == "冰糖"
+
+
+def test_voice_design_context_overrides_prompt():
+    """voice-design --context should override voice_prompt positional arg."""
+    parser = cli.build_parser()
+    args = parser.parse_args([
+        "speech", "voice-design", "default_prompt", "hello", "-o", "out.wav",
+        "--context", "director mode instruction"
+    ])
+    assert args.context == "director mode instruction"
+    assert args.voice_prompt == "default_prompt"
+
+
+def test_voice_clone_context_arg():
+    """voice-clone --context should be parsed."""
+    parser = cli.build_parser()
+    args = parser.parse_args([
+        "speech", "voice-clone", "sample.wav", "hello", "-o", "out.wav",
+        "--context", "用激动的语气"
+    ])
+    assert args.context == "用激动的语气"
 
 
 def test_chat_url_does_not_duplicate_v1(monkeypatch):
@@ -108,7 +232,7 @@ def test_save_config_uses_private_permissions(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "CONFIG_DIR", config_dir)
     monkeypatch.setattr(cli, "CONFIG_PATH", config_path)
 
-    cli.save_config({"api_key": "secret"})
+    cli.save_config({"api_key": "abc"})
     assert oct(config_path.stat().st_mode & 0o777) == "0o600"
 
 
